@@ -1,0 +1,117 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PARENT
+  STUDENT
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum Section {
+  NURSERY
+  PRIMARY
+  SECONDARY
+}
+
+enum FeeStatus {
+  PENDING
+  PAID
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String?  @unique
+  phone        String?  @unique
+  passwordHash String
+  role         Role
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  // Only populated when role = PARENT
+  children       Student[]      @relation("ParentToStudent")
+
+  // Only populated when role = STUDENT and that student has their own login
+  studentProfile Student?       @relation("StudentUser")
+
+  announcements  Announcement[] @relation("PostedBy")
+}
+
+model Student {
+  id          String   @id @default(cuid())
+  name        String
+  section     Section
+  className   String   // e.g. "Primary 3", "JSS 2" — see src/lib/schoolStructure.js
+  dateOfBirth DateTime
+  createdAt   DateTime @default(now())
+
+  parentId    String
+  parent      User     @relation("ParentToStudent", fields: [parentId], references: [id])
+
+  userId      String?  @unique
+  user        User?    @relation("StudentUser", fields: [userId], references: [id])
+
+  fees        Fee[]
+  results     Result[]
+}
+
+model Fee {
+  id          String    @id @default(cuid())
+  studentId   String
+  student     Student   @relation(fields: [studentId], references: [id])
+  term        String    // e.g. "2026/2027 Term 1"
+  description String    // e.g. "Admission fee", "Term fee"
+  amount      Int       // stored in kobo, to avoid float rounding issues
+  status      FeeStatus @default(PENDING)
+  createdAt   DateTime  @default(now())
+
+  payments    Payment[]
+}
+
+model Payment {
+  id               String   @id @default(cuid())
+  feeId            String
+  fee              Fee      @relation(fields: [feeId], references: [id])
+  amount           Int
+  gateway          String   @default("paystack")
+  gatewayReference String   @unique
+  status           String   // "successful" | "failed" | "pending"
+  paidAt           DateTime @default(now())
+
+  receipt          Receipt?
+}
+
+model Receipt {
+  id            String   @id @default(cuid())
+  paymentId     String   @unique
+  payment       Payment  @relation(fields: [paymentId], references: [id])
+  receiptNumber String   @unique
+  issuedAt      DateTime @default(now())
+}
+
+model Announcement {
+  id         String   @id @default(cuid())
+  postedById String
+  postedBy   User     @relation("PostedBy", fields: [postedById], references: [id])
+  audience   String   // "all" | "parents" | "students" | "nursery" | "primary" | "secondary"
+  title      String
+  body       String
+  createdAt  DateTime @default(now())
+}
+
+model Result {
+  id        String   @id @default(cuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id])
+  subject   String
+  term      String
+  score     Int
+  createdAt DateTime @default(now())
+}

@@ -1,4 +1,3 @@
-[README.md](https://github.com/user-attachments/files/33051478/README.md)
 # De Fountain of Knowledge Academy — Backend
 
 The API the public site's portals run on: parent, student and admin/super admin, with Paystack payments and receipts. This covers the full build plan — Phases 2 through 7.
